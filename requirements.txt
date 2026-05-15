@@ -1,0 +1,38 @@
+# Core Dependencies
+streamlit>=1.28.0,<2.0.0
+supabase>=2.3.0
+python-dotenv>=1.0.0
+
+# Backend (if using FastAPI)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# Security
+cryptography>=41.0.0
+bcrypt>=4.0.0
+PyJWT>=2.8.0
+
+# AI Integration
+groq>=0.4.0
+
+# PDF Generation
+reportlab>=4.0.0
+
+# File Handling and Validation
+python-magic>=0.4.27  # For MIME type detection
+# clamav>=0.4.1  # Optional malware scanning package; not supported in Streamlit Cloud
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+selenium>=4.15.0
+
+# Development
+black>=23.0.0
+flake8>=6.1.0
+mypy>=1.7.0
+
+# Additional Utilities
+requests>=2.31.0
+pandas>=2.1.0
+pillow>=10.1.0  # For image processing
