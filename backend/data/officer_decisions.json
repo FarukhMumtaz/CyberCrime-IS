@@ -53,5 +53,11 @@
     "decision": "Reject",
     "notes": "fake",
     "timestamp": "2026-05-16T02:13:55.238200"
+  },
+  "CCRS-PK-2026-7BAD0B": {
+    "officer_id": "CYBER2026FARUKH",
+    "decision": "Solve",
+    "notes": "good",
+    "timestamp": "2026-05-16T10:47:17.798956"
   }
 }

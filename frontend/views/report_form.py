@@ -60,26 +60,23 @@ def save_evidence(tracking_id, uploaded_files):
 def render_report_form(set_page_config: bool = True):
     if set_page_config:
         st.set_page_config(page_title="Initialize Report", page_icon="📋", layout="wide")
-    
+
     st.markdown("## 📋 INITIALIZE NEW CASE REPORT")
+    anonymous = False
     
     with st.form("complaint_form", clear_on_submit=False):
         st.markdown('<div class="complaint-form">', unsafe_allow_html=True)
 
         st.markdown("### 👤 CONTACT INFORMATION")
-        anonymous = st.checkbox("MAINTAIN OPERATIONAL ANONYMITY", value=False)
         email = st.text_input("PRIMARY EMAIL (REQUIRED)", placeholder="citizen@example.com")
 
-        if not anonymous:
-            c1, c2 = st.columns(2)
-            with c1:
-                full_name = st.text_input("FULL LEGAL NAME")
-                phone = st.text_input("MOBILE CONTACT")
-            with c2:
-                cnic = st.text_input("CNIC (13 DIGITS)", max_chars=13)
-                address = st.text_area("PHYSICAL ADDRESS")
-        else:
-            full_name, phone, cnic, address = "ANONYMOUS", "N/A", "N/A", "N/A"
+        c1, c2 = st.columns(2)
+        with c1:
+            full_name = st.text_input("FULL LEGAL NAME")
+            phone = st.text_input("MOBILE CONTACT")
+        with c2:
+            cnic = st.text_input("CNIC (13 DIGITS)", max_chars=13)
+            address = st.text_area("PHYSICAL ADDRESS")
 
         st.markdown("---")
         st.markdown("### 🛰️ INCIDENT MATRIX")

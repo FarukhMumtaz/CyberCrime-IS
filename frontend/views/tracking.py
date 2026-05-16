@@ -54,7 +54,7 @@ def render_tracking_page(set_page_config: bool = True):
             d = decisions.get(tracking_id)
             
             st.markdown("---")
-            st.markdown(f"### ✅ CASE NODE FOUND: {tracking_id}")
+            st.markdown(f"### ✅ COMPLAINT RECORD FOUND: {tracking_id}")
             
             # Tracking Card
             st.markdown('<div class="tracking-card cyber-glow">', unsafe_allow_html=True)

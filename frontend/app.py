@@ -34,8 +34,6 @@ def load_css():
 def initialize_session():
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 'home'
-    if 'officer_logged_in' not in st.session_state:
-        st.session_state.officer_logged_in = False
 
 def navigate_to(page_name: str):
     """Simple, clean navigation using session state."""
@@ -53,7 +51,6 @@ def main():
     with st.sidebar:
         st.markdown("### 🗺️ NAVIGATION")
         
-        # Base pages
         pages = {
             "🏠 Home": "home",
             "📋 Report Crime": "report_form",
@@ -61,13 +58,7 @@ def main():
             "📚 Legal Guide": "law_guide",
             "❓ Help Center": "help_support"
         }
-        
-        # Add dynamic officer options
-        if st.session_state.current_page == "officer_login":
-            pages["🔐 Officer Login"] = "officer_login"
-        elif st.session_state.current_page == "officer_panel":
-            pages["👮 Officer Panel"] = "officer_panel"
-            
+
         page_labels = list(pages.keys())
         page_values = list(pages.values())
         
@@ -80,26 +71,13 @@ def main():
         # By including current_page in the key, we force Streamlit to refresh the radio
         # when the page changes via a button, ensuring the 'index' is always applied.
         radio_key = f"nav_radio_{st.session_state.current_page}"
-        selected_label = st.radio("Access Node:", page_labels, index=current_idx, key=radio_key)
+        selected_label = st.radio("Portal Access:", page_labels, index=current_idx, key=radio_key)
         selected_page = pages[selected_label]
         
         # Handle User Interaction via Radio
         if selected_page != st.session_state.current_page:
             st.session_state.current_page = selected_page
             st.rerun()
-
-        st.markdown("---")
-        if not st.session_state.get('officer_logged_in'):
-            if st.button("🔑 OFFICER AUTHENTICATION", use_container_width=True):
-                navigate_to("officer_login")
-        else:
-            st.success(f"ACTIVE ID: {st.session_state.get('officer_id')}")
-            if st.button("📊 DASHBOARD", use_container_width=True):
-                navigate_to("officer_panel")
-            if st.button("🚪 LOGOUT", use_container_width=True):
-                st.session_state.officer_logged_in = False
-                st.session_state.officer_id = None
-                navigate_to("home")
 
     # ── Page Routing ──
     current = st.session_state.current_page
@@ -117,12 +95,6 @@ def main():
     elif current == "help_support":
         from views.help import render_help_page
         render_help_page()
-    elif current == "officer_login":
-        from views.officer_login import render_officer_login
-        render_officer_login(set_page_config=False)
-    elif current == "officer_panel":
-        from views.officer_panel import render_officer_panel
-        render_officer_panel(set_page_config=False)
 
     # ── Chatbot ──
     from components.chatbot import render_chatbot
@@ -132,13 +104,25 @@ def main():
     st.markdown(f"""<div class="footer"><p>© {datetime.now().year} NCIA Pakistan</p></div>""", unsafe_allow_html=True)
 
 def show_home_page():
-    st.markdown("### 🛰️ GLOBAL THREAT MONITOR")
+    st.markdown("### 🛰️ Cyber Reporting Services")
     c1, c2, c3 = st.columns(3)
-    c1.metric("NETWORK", "SECURE")
-    c2.metric("COMPLIANCE", "PECA 2016")
-    c3.metric("UPTIME", "100%")
+    service_cards = [
+        (c1, "Report Cybercrime", "Submit a complaint with incident details and evidence."),
+        (c2, "Track Complaint", "Check the review status of an existing case."),
+        (c3, "Legal Awareness", "Read public guidance on cybercrime laws and safety."),
+    ]
+    for column, title, body in service_cards:
+        column.markdown(
+            f"""
+            <div class="cyber-glow">
+                <h4>{title}</h4>
+                <p>{body}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     st.markdown("---")
-    st.info("💡 Use the sidebar to initiate a report or track your existing case status.")
+    st.info("💡 Submit cybercrime reports securely and monitor complaint progress through the official digital portal.")
     if st.button("START COMPLAINT FORM", type="primary", use_container_width=True):
         navigate_to("report_form")
 

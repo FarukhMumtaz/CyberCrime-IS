@@ -47,7 +47,7 @@ def render_help_page():
     **If you are a victim of cybercrime, initialize the following protocol immediately:**
     1. **HALT COMMUNICATION:** Do not engage with the threat actor.
     2. **DATA PRESERVATION:** Take high-resolution screenshots of all evidence.
-    3. **NODE ISOLATION:** Change passwords and enable MFA on all affected accounts.
+    3. **ACCOUNT PROTECTION:** Change passwords and enable MFA on all affected accounts.
     4. **REPORT:** Initialize a case report on this portal immediately.
     """)
 
@@ -65,7 +65,7 @@ def render_help_page():
         
         name = st.text_input("NAME / ALIAS")
         email = st.text_input("CONTACT EMAIL")
-        subject = st.selectbox("SUBJECT NODE", ["General Inquiry", "Technical Issue", "Legal Question", "Feedback"])
+        subject = st.selectbox("SUBJECT", ["General Inquiry", "Technical Issue", "Legal Question", "Feedback"])
         message = st.text_area("DETAILED MESSAGE")
         
         submitted = st.form_submit_button("DISPATCH MESSAGE", type="primary", use_container_width=True)
@@ -73,7 +73,7 @@ def render_help_page():
 
         if submitted:
             if not name or not email or not message:
-                st.error("ALL NODES IN FORM MUST BE POPULATED.")
+                st.error("ALL REQUIRED FIELDS MUST BE COMPLETED.")
             else:
                 st.success("🛰️ MESSAGE DISPATCHED. RESPONSE WILL BE ROUTED TO YOUR EMAIL.")
 

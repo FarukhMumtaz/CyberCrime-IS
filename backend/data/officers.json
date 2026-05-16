@@ -51,5 +51,12 @@
     "role": "Analyst",
     "password": "Umair106",
     "created_at": "2026-05-16T00:55:09.125413"
+  },
+  "CYBER2026ALI": {
+    "name": "Ali",
+    "email": "ali@gmail.com",
+    "role": "Cyber Expert",
+    "password": "ali111",
+    "created_at": "2026-05-16T11:09:17.314638"
   }
 }

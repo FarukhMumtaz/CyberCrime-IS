@@ -78,6 +78,40 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _upload_evidence_file(
+    client: Any,
+    path: Path,
+    complaint_id: str,
+    filename: str,
+    mime_type: str,
+) -> Optional[str]:
+    """Upload evidence to Supabase Storage when the configured bucket is available."""
+    bucket = os.getenv("SUPABASE_EVIDENCE_BUCKET", "evidence-files")
+    storage_path = f"evidence/{complaint_id}/{Path(filename).name}"
+
+    try:
+        client.storage.from_(bucket).upload(
+            storage_path,
+            path.read_bytes(),
+            {"content-type": mime_type, "x-upsert": "true"},
+        )
+        return storage_path
+    except Exception as exc:
+        if "bucket not found" in str(exc).lower():
+            try:
+                client.storage.create_bucket(bucket, options={"public": False})
+                client.storage.from_(bucket).upload(
+                    storage_path,
+                    path.read_bytes(),
+                    {"content-type": mime_type, "x-upsert": "true"},
+                )
+                return storage_path
+            except Exception as create_exc:
+                logger.warning("Supabase evidence bucket setup skipped for %s: %s", bucket, create_exc)
+        logger.warning("Supabase evidence file upload skipped for %s: %s", filename, exc)
+        return None
+
+
 def _get_complaint_row(tracking_id: str) -> Optional[Dict[str, Any]]:
     client = _get_client()
     if not client:
@@ -175,19 +209,20 @@ def sync_evidence_metadata(
             continue
 
         mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        file_path = f"local-evidence/{tracking_id}/{filename}"
         try:
             existing = (
                 client.table("evidence")
                 .select("id")
                 .eq("complaint_id", complaint_id)
-                .eq("file_path", file_path)
+                .eq("original_name", filename)
                 .limit(1)
                 .execute()
             )
             if existing.data:
                 continue
 
+            storage_path = _upload_evidence_file(client, path, complaint_id, filename, mime_type)
+            file_path = storage_path or f"local-evidence/{tracking_id}/{filename}"
             evidence_data = {
                 "complaint_id": complaint_id,
                 "file_name": filename,
@@ -201,7 +236,8 @@ def sync_evidence_metadata(
                 "malware_scan_status": "not_scanned",
                 "metadata": {
                     "tracking_id": tracking_id,
-                    "source": "streamlit_local_upload",
+                    "source": "streamlit_storage_upload" if storage_path else "streamlit_local_upload",
+                    "storage_bucket": os.getenv("SUPABASE_EVIDENCE_BUCKET", "evidence-files") if storage_path else None,
                 },
                 "uploaded_at": datetime.utcnow().isoformat(),
             }
