@@ -11,6 +11,7 @@ import logging
 import re
 
 logger = logging.getLogger(__name__)
+GROQ_TEXT_MODEL = "llama-3.1-8b-instant"
 
 class AIService:
     """Service for AI operations using Groq."""
@@ -52,7 +53,7 @@ class AIService:
 
             response = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama3-8b-8192",
+                model=GROQ_TEXT_MODEL,
                 max_tokens=50,
                 temperature=0.1
             )
@@ -81,7 +82,7 @@ class AIService:
 
             response = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama3-8b-8192",
+                model=GROQ_TEXT_MODEL,
                 max_tokens=200,
                 temperature=0.3
             )
@@ -114,7 +115,7 @@ class AIService:
 
             response = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama3-8b-8192",
+                model=GROQ_TEXT_MODEL,
                 max_tokens=300,
                 temperature=0.2
             )

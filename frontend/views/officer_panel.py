@@ -16,7 +16,14 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from backend.utils.email_service import send_case_update_email
-from frontend.utils.supabase_sync import sync_complaint, sync_officer_decision
+from frontend.utils.supabase_sync import (
+    download_supabase_evidence,
+    fetch_supabase_complaints,
+    fetch_supabase_evidence,
+    fetch_supabase_officer_decisions,
+    sync_complaint,
+    sync_officer_decision,
+)
 
 # Database files
 COMPLAINTS_FILE = ROOT_DIR / "backend" / "data" / "complaints.json"
@@ -37,11 +44,59 @@ def save_json(file_path, data):
     with open(file_path, 'w') as f:
         json.dump(data, f, indent=2, default=str)
 
+def merge_complaints(local_complaints, supabase_complaints):
+    merged = dict(supabase_complaints)
+    for tid, local_complaint in local_complaints.items():
+        if tid not in merged:
+            merged[tid] = local_complaint
+            continue
+
+        combined = {**local_complaint, **merged[tid]}
+        for field in ("email", "evidence_files"):
+            if not combined.get(field) and local_complaint.get(field):
+                combined[field] = local_complaint.get(field)
+        merged[tid] = combined
+    return merged
+
+def load_shared_complaints():
+    return merge_complaints(load_json(COMPLAINTS_FILE), fetch_supabase_complaints())
+
+def load_shared_decisions():
+    decisions = load_json(OFFICER_DECISIONS_FILE)
+    for tid, decision in fetch_supabase_officer_decisions().items():
+        decisions[tid] = {**decisions.get(tid, {}), **decision}
+    return decisions
+
 def get_actual_evidence_files(tracking_id):
     case_dir = EVIDENCE_BASE_DIR / tracking_id
     if case_dir.exists() and case_dir.is_dir():
         return [f for f in os.listdir(case_dir) if os.path.isfile(case_dir / f)]
     return []
+
+def get_evidence_items(tracking_id):
+    items = []
+    seen_names = set()
+
+    for filename in get_actual_evidence_files(tracking_id):
+        path = EVIDENCE_BASE_DIR / tracking_id / filename
+        items.append({"source": "local", "name": filename, "path": path})
+        seen_names.add(filename)
+
+    for row in fetch_supabase_evidence(tracking_id):
+        name = row.get("original_name") or row.get("file_name")
+        if not name or name in seen_names:
+            continue
+        items.append(
+            {
+                "source": "supabase",
+                "name": name,
+                "file_path": row.get("file_path"),
+                "mime_type": row.get("mime_type"),
+            }
+        )
+        seen_names.add(name)
+
+    return items
 
 def draft_ai_email(c, decision, officer_notes):
     """Uses AI to draft a detailed, professional email including all case data."""
@@ -90,8 +145,8 @@ def render_officer_panel(set_page_config: bool = True):
     officer_id = st.session_state.get('officer_id')
     st.markdown(f"### 👮 OFFICER DASHBOARD | `{officer_id}`")
     
-    complaints = load_json(COMPLAINTS_FILE)
-    decisions = load_json(OFFICER_DECISIONS_FILE)
+    complaints = load_shared_complaints()
+    decisions = load_shared_decisions()
     
     tab1, tab2, tab3 = st.tabs(["📥 QUEUE", "✅ PROCESSED", "🤖 AI AUTOMATION"])
     
@@ -115,7 +170,11 @@ def render_officer_panel(set_page_config: bool = True):
     # Manual Review Section
     if st.session_state.get('review_tid'):
         tid = st.session_state.review_tid
-        c = complaints[tid]
+        c = complaints.get(tid)
+        if not c:
+            st.error("Selected complaint is no longer available.")
+            st.session_state.review_tid = None
+            return
         st.markdown("---")
         st.subheader(f"🔍 CASE DOSSIER: {tid}")
         
@@ -135,26 +194,37 @@ def render_officer_panel(set_page_config: bool = True):
         st.info(c.get('description'))
 
         st.markdown("#### 📁 EVIDENCE REPOSITORY")
-        files = get_actual_evidence_files(tid)
-        if not files:
+        evidence_items = get_evidence_items(tid)
+        if not evidence_items:
             st.warning("No physical evidence attached.")
         else:
             cols = st.columns(4)
-            for i, fname in enumerate(files):
+            for i, item in enumerate(evidence_items):
+                fname = item["name"]
                 with cols[i % 4]:
-                    fpath = EVIDENCE_BASE_DIR / tid / fname
-                    with open(fpath, "rb") as f:
-                        st.download_button(f"📥 {fname[:10]}...", f, fname, key=f"dl_{tid}_{i}")
-                    if fname.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        # Fixed parameter for older streamlit versions
-                        st.image(str(fpath), use_column_width=True)
+                    if item["source"] == "local":
+                        fpath = item["path"]
+                        with open(fpath, "rb") as f:
+                            st.download_button(f"📥 {fname[:10]}...", f, fname, key=f"dl_{tid}_{i}")
+                        if fname.lower().endswith(('.png', '.jpg', '.jpeg')):
+                            st.image(str(fpath), use_column_width=True)
+                    else:
+                        file_data = download_supabase_evidence(item.get("file_path"))
+                        if file_data:
+                            st.download_button(f"📥 {fname[:10]}...", file_data, fname, key=f"dl_{tid}_{i}")
+                            if fname.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                st.image(file_data, use_column_width=True)
+                        else:
+                            st.caption(f"{fname} metadata available")
 
         with st.form("action_form"):
             decision = st.selectbox("Status:", ["Approve", "Solve", "Reject"])
             notes = st.text_area("Remarks:")
             if st.form_submit_button("SUBMIT DECISION", use_container_width=True):
                 decisions[tid] = {"officer_id": officer_id, "decision": decision, "notes": notes, "timestamp": datetime.now().isoformat()}
-                save_json(OFFICER_DECISIONS_FILE, decisions)
+                local_decisions = load_json(OFFICER_DECISIONS_FILE)
+                local_decisions[tid] = decisions[tid]
+                save_json(OFFICER_DECISIONS_FILE, local_decisions)
                 sync_complaint(c)
                 sync_officer_decision(tid, decisions[tid])
                 st.session_state.review_tid = None
@@ -176,7 +246,7 @@ def render_officer_panel(set_page_config: bool = True):
         else:
             sel_tid = st.selectbox("Select Case to Notify:", processed_tids)
             if sel_tid:
-                c = complaints.get(sel_tid)
+                c = complaints.get(sel_tid, {})
                 d = decisions.get(sel_tid)
                 st.markdown("---")
                 db_email = c.get('email', '')

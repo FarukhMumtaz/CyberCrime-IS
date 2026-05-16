@@ -13,6 +13,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from frontend.utils.supabase_sync import fetch_supabase_complaint, fetch_supabase_officer_decisions
+
 # Database files
 COMPLAINTS_FILE = ROOT_DIR / "backend" / "data" / "complaints.json"
 DECISIONS_FILE = ROOT_DIR / "backend" / "data" / "officer_decisions.json"
@@ -25,6 +27,35 @@ def load_json(file_path):
         except:
             return {}
     return {}
+
+def get_shared_tracking_record(tracking_id):
+    local_complaints = load_json(COMPLAINTS_FILE)
+    local_decisions = load_json(DECISIONS_FILE)
+    supabase_complaint = fetch_supabase_complaint(tracking_id)
+    supabase_decisions = fetch_supabase_officer_decisions()
+
+    complaint = local_complaints.get(tracking_id)
+    if supabase_complaint:
+        complaint = {**complaint, **supabase_complaint} if complaint else supabase_complaint
+
+    decision = local_decisions.get(tracking_id)
+    if tracking_id in supabase_decisions:
+        decision = {**decision, **supabase_decisions[tracking_id]} if decision else supabase_decisions[tracking_id]
+    elif complaint:
+        status = str(complaint.get("status", "")).lower()
+        status_decisions = {
+            "resolved": "Solve",
+            "under_review": "Approve",
+            "rejected": "Reject",
+        }
+        if status in status_decisions:
+            decision = {
+                "decision": status_decisions[status],
+                "notes": "Status updated by officer.",
+                "timestamp": complaint.get("updated_at") or complaint.get("submitted_at"),
+            }
+
+    return complaint, decision
 
 def render_tracking_page(set_page_config: bool = True):
     if set_page_config:
@@ -46,12 +77,8 @@ def render_tracking_page(set_page_config: bool = True):
         search_btn = st.button("EXECUTE SEARCH", type="primary", use_container_width=True)
 
     if search_btn and tracking_id:
-        complaints = load_json(COMPLAINTS_FILE)
-        decisions = load_json(DECISIONS_FILE)
-        
-        if tracking_id in complaints:
-            c = complaints[tracking_id]
-            d = decisions.get(tracking_id)
+        c, d = get_shared_tracking_record(tracking_id)
+        if c:
             
             st.markdown("---")
             st.markdown(f"### ✅ COMPLAINT RECORD FOUND: {tracking_id}")
@@ -88,7 +115,7 @@ def render_tracking_page(set_page_config: bool = True):
                     st.markdown('<div class="rejected-badge">REJECTED / INSUFFICIENT DATA</div>', unsafe_allow_html=True)
                 
                 st.markdown(f"**Officer Remarks:** *\"{notes}\"*")
-                st.markdown(f"**Operational Date:** {d.get('decided_at')}")
+                st.markdown(f"**Operational Date:** {d.get('timestamp') or d.get('decided_at')}")
             else:
                 st.markdown('<div class="pending-badge">PENDING REVIEW</div>', unsafe_allow_html=True)
                 st.info("The complaint is currently in the review queue. Analysts will initialize investigation shortly.")

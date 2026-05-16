@@ -131,6 +131,172 @@ def _get_complaint_row(tracking_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _complaint_from_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    contact_values = [row.get("full_name"), row.get("phone"), row.get("cnic"), row.get("address")]
+    return {
+        "tracking_id": row.get("tracking_id"),
+        "email": None,
+        "full_name": row.get("full_name") or "ANONYMOUS",
+        "phone": row.get("phone") or "N/A",
+        "cnic": row.get("cnic") or "N/A",
+        "address": row.get("address") or "N/A",
+        "anonymous": not any(contact_values),
+        "incident_date": _iso(row.get("incident_date")),
+        "location": row.get("location") or "",
+        "complaint_reason": row.get("complaint_reason"),
+        "description": row.get("description"),
+        "evidence_files": [],
+        "submitted_at": _iso(row.get("created_at")),
+        "updated_at": _iso(row.get("updated_at")),
+        "status": row.get("status") or "pending",
+        "ai_summary": row.get("ai_summary"),
+        "ai_category": row.get("ai_category"),
+        "supabase_id": row.get("id"),
+    }
+
+
+def _submission_details_by_tracking() -> Dict[str, Dict[str, Any]]:
+    client = _get_client()
+    if not client:
+        return {}
+
+    try:
+        response = (
+            client.table("audit_logs")
+            .select("details,created_at")
+            .eq("action", "complaint_submitted")
+            .order("created_at")
+            .limit(1000)
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning("Supabase complaint audit lookup failed: %s", exc)
+        return {}
+
+    details_by_tracking: Dict[str, Dict[str, Any]] = {}
+    for audit_row in response.data or []:
+        details = audit_row.get("details") or {}
+        tracking_id = details.get("tracking_id")
+        if not tracking_id:
+            continue
+        details_by_tracking[tracking_id] = details
+    return details_by_tracking
+
+
+def fetch_supabase_complaints() -> Dict[str, Dict[str, Any]]:
+    """Fetch complaints from Supabase for shared citizen/officer portal state."""
+    client = _get_client()
+    if not client:
+        return {}
+
+    try:
+        response = client.table("complaints").select("*").order("created_at").execute()
+    except Exception as exc:
+        logger.warning("Supabase complaint list failed: %s", exc)
+        return {}
+
+    submission_details = _submission_details_by_tracking()
+    complaints: Dict[str, Dict[str, Any]] = {}
+    for row in response.data or []:
+        complaint = _complaint_from_row(row)
+        tracking_id = complaint.get("tracking_id")
+        if not tracking_id:
+            continue
+        details = submission_details.get(tracking_id, {})
+        if details.get("email"):
+            complaint["email"] = details.get("email")
+        if "anonymous" in details:
+            complaint["anonymous"] = details.get("anonymous")
+        complaints[tracking_id] = complaint
+    return complaints
+
+
+def fetch_supabase_complaint(tracking_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch one complaint from Supabase by tracking ID."""
+    row = _get_complaint_row(tracking_id)
+    if not row:
+        return None
+
+    complaint = _complaint_from_row(row)
+    details = _submission_details_by_tracking().get(tracking_id, {})
+    if details.get("email"):
+        complaint["email"] = details.get("email")
+    if "anonymous" in details:
+        complaint["anonymous"] = details.get("anonymous")
+    return complaint
+
+
+def fetch_supabase_officer_decisions() -> Dict[str, Dict[str, Any]]:
+    """Fetch officer decisions from Supabase audit logs."""
+    client = _get_client()
+    if not client:
+        return {}
+
+    try:
+        response = (
+            client.table("audit_logs")
+            .select("details,created_at")
+            .eq("action", "officer_decision")
+            .order("created_at")
+            .limit(1000)
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning("Supabase officer decision lookup failed: %s", exc)
+        return {}
+
+    decisions: Dict[str, Dict[str, Any]] = {}
+    for audit_row in response.data or []:
+        details = audit_row.get("details") or {}
+        tracking_id = details.get("tracking_id")
+        if not tracking_id:
+            continue
+        decisions[tracking_id] = {
+            "officer_id": details.get("officer_id"),
+            "decision": details.get("decision"),
+            "notes": details.get("notes"),
+            "timestamp": details.get("timestamp") or audit_row.get("created_at"),
+            "status": details.get("status"),
+        }
+    return decisions
+
+
+def fetch_supabase_evidence(tracking_id: str) -> list[Dict[str, Any]]:
+    """Fetch evidence metadata for a complaint from Supabase."""
+    client = _get_client()
+    complaint = _get_complaint_row(tracking_id)
+    complaint_id = complaint.get("id") if complaint else None
+    if not client or not complaint_id:
+        return []
+
+    try:
+        response = (
+            client.table("evidence")
+            .select("*")
+            .eq("complaint_id", complaint_id)
+            .order("uploaded_at")
+            .execute()
+        )
+        return response.data or []
+    except Exception as exc:
+        logger.warning("Supabase evidence lookup failed for %s: %s", tracking_id, exc)
+        return []
+
+
+def download_supabase_evidence(file_path: str) -> Optional[bytes]:
+    """Download an evidence file from Supabase Storage if it is stored there."""
+    client = _get_client()
+    if not client or not file_path or not file_path.startswith("evidence/"):
+        return None
+
+    bucket = os.getenv("SUPABASE_EVIDENCE_BUCKET", "evidence-files")
+    try:
+        return client.storage.from_(bucket).download(file_path)
+    except Exception as exc:
+        logger.warning("Supabase evidence download failed for %s: %s", file_path, exc)
+        return None
+
+
 def sync_complaint(complaint_data: Dict[str, Any]) -> Optional[str]:
     """Create or update the Supabase complaint row for a local complaint."""
     client = _get_client()
@@ -159,6 +325,7 @@ def sync_complaint(complaint_data: Dict[str, Any]) -> Optional[str]:
 
     try:
         existing = _get_complaint_row(tracking_id)
+        created = existing is None
         if existing:
             response = (
                 client.table("complaints")
@@ -171,7 +338,7 @@ def sync_complaint(complaint_data: Dict[str, Any]) -> Optional[str]:
 
         saved = response.data[0] if response.data else existing
         complaint_id = saved.get("id") if saved else None
-        if complaint_id:
+        if complaint_id and created:
             _create_audit_log(
                 "complaint_submitted",
                 "complaint",

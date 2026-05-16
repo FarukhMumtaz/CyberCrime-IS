@@ -25,11 +25,11 @@
     "created_at": "2026-05-15T02:44:59.208111"
   },
   "CYBER2026UMAIRMALIK": {
-    "name": "Umair Malik",
-    "email": "umair@gmail.com",
-    "role": "Cyber Expert",
-    "password": "UmairMalik106",
-    "created_at": "2026-05-15T22:57:02.522106"
+    "name": "umairmalik",
+    "email": "umairmalik@gmail.com",
+    "role": "Inspector",
+    "password": "umair106",
+    "created_at": "2026-05-16T12:27:16.468175"
   },
   "CYBER2026FARUKH": {
     "name": "farukh",
@@ -58,5 +58,12 @@
     "role": "Cyber Expert",
     "password": "ali111",
     "created_at": "2026-05-16T11:09:17.314638"
+  },
+  "CYBER2026AHMED": {
+    "name": "ahmed",
+    "email": "ahmed@gmail.com",
+    "role": "Inspector",
+    "password": "ahmed111",
+    "created_at": "2026-05-16T11:35:44.493138"
   }
 }
