@@ -42,6 +42,7 @@
 
 2. **Database Setup**
    - Run SQL migrations from `database/migrations/`
+   - Ensure `002_encryption_column_widths.sql` is applied before encrypted complaint/evidence writes
    - Execute seed data from `database/seeders/`
 
 3. **Storage Setup**
@@ -62,6 +63,11 @@
 2. **Environment Variables**
    - Add all variables from .env to Streamlit secrets
    - Ensure sensitive keys are properly configured
+   - Include the database encryption keys:
+     ```toml
+     MONOALPHABETIC_KEY = "QWERTYUIOPASDFGHJKLZXCVBNM"
+     VIGENERE_KEY = "CYBERSECURITY"
+     ```
 
 3. **App Configuration**
    - Set entry point: `frontend/app.py`

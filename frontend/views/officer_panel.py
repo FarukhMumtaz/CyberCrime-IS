@@ -17,12 +17,13 @@ if str(ROOT_DIR) not in sys.path:
 
 from backend.utils.email_service import send_case_update_email
 from frontend.utils.supabase_sync import (
+    SupabaseSyncError,
     download_supabase_evidence,
     fetch_supabase_complaints,
     fetch_supabase_evidence,
     fetch_supabase_officer_decisions,
-    sync_complaint,
-    sync_officer_decision,
+    supabase_available,
+    sync_officer_decision_required,
 )
 
 # Database files
@@ -59,13 +60,16 @@ def merge_complaints(local_complaints, supabase_complaints):
     return merged
 
 def load_shared_complaints():
-    return merge_complaints(load_json(COMPLAINTS_FILE), fetch_supabase_complaints())
+    supabase_complaints = fetch_supabase_complaints()
+    if supabase_complaints or supabase_available():
+        return supabase_complaints
+    return load_json(COMPLAINTS_FILE)
 
 def load_shared_decisions():
-    decisions = load_json(OFFICER_DECISIONS_FILE)
-    for tid, decision in fetch_supabase_officer_decisions().items():
-        decisions[tid] = {**decisions.get(tid, {}), **decision}
-    return decisions
+    supabase_decisions = fetch_supabase_officer_decisions()
+    if supabase_decisions or supabase_available():
+        return supabase_decisions
+    return load_json(OFFICER_DECISIONS_FILE)
 
 def get_actual_evidence_files(tracking_id):
     case_dir = EVIDENCE_BASE_DIR / tracking_id
@@ -76,11 +80,6 @@ def get_actual_evidence_files(tracking_id):
 def get_evidence_items(tracking_id):
     items = []
     seen_names = set()
-
-    for filename in get_actual_evidence_files(tracking_id):
-        path = EVIDENCE_BASE_DIR / tracking_id / filename
-        items.append({"source": "local", "name": filename, "path": path})
-        seen_names.add(filename)
 
     for row in fetch_supabase_evidence(tracking_id):
         name = row.get("original_name") or row.get("file_name")
@@ -95,6 +94,17 @@ def get_evidence_items(tracking_id):
             }
         )
         seen_names.add(name)
+
+    if items:
+        return items
+
+    if supabase_available():
+        return items
+
+    for filename in get_actual_evidence_files(tracking_id):
+        path = EVIDENCE_BASE_DIR / tracking_id / filename
+        items.append({"source": "local", "name": filename, "path": path})
+        seen_names.add(filename)
 
     return items
 
@@ -221,12 +231,19 @@ def render_officer_panel(set_page_config: bool = True):
             decision = st.selectbox("Status:", ["Approve", "Solve", "Reject"])
             notes = st.text_area("Remarks:")
             if st.form_submit_button("SUBMIT DECISION", use_container_width=True):
-                decisions[tid] = {"officer_id": officer_id, "decision": decision, "notes": notes, "timestamp": datetime.now().isoformat()}
+                decision_record = {"officer_id": officer_id, "decision": decision, "notes": notes, "timestamp": datetime.now().isoformat()}
+                if c.get("supabase_id"):
+                    try:
+                        sync_officer_decision_required(tid, decision_record)
+                    except SupabaseSyncError as exc:
+                        st.error("Decision could not be saved to the central Supabase database.")
+                        st.warning(str(exc))
+                        return
+
+                decisions[tid] = decision_record
                 local_decisions = load_json(OFFICER_DECISIONS_FILE)
                 local_decisions[tid] = decisions[tid]
                 save_json(OFFICER_DECISIONS_FILE, local_decisions)
-                sync_complaint(c)
-                sync_officer_decision(tid, decisions[tid])
                 st.session_state.review_tid = None
                 st.rerun()
             if st.form_submit_button("CLOSE", use_container_width=True):

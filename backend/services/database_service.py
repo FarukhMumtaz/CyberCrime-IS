@@ -19,6 +19,19 @@ except ImportError:
         # Models import may fail during service initialization
         pass
 
+try:
+    from backend.utils.ciphers import (
+        decrypt_complaint_payload,
+        encrypt_complaint_payload,
+        encrypt_evidence_payload,
+    )
+except ImportError:
+    from utils.ciphers import (
+        decrypt_complaint_payload,
+        encrypt_complaint_payload,
+        encrypt_evidence_payload,
+    )
+
 logger = logging.getLogger(__name__)
 
 class DatabaseService:
@@ -73,7 +86,8 @@ class DatabaseService:
             return None
 
         try:
-            response = self.client.table('complaints').insert(complaint_data).execute()
+            encrypted_data = encrypt_complaint_payload(complaint_data)
+            response = self.client.table('complaints').insert(encrypted_data).execute()
             return response.data[0]['id'] if response.data else None
         except Exception as e:
             logger.error(f"Error creating complaint: {e}")
@@ -89,7 +103,7 @@ class DatabaseService:
             if user_id:
                 query = query.or_(f'user_id.is.null,user_id.eq.{user_id}')
             response = query.execute()
-            return response.data[0] if response.data else None
+            return decrypt_complaint_payload(response.data[0]) if response.data else None
         except Exception as e:
             logger.error(f"Error getting complaint: {e}")
             return None
@@ -101,7 +115,8 @@ class DatabaseService:
 
         try:
             update_data['updated_at'] = datetime.utcnow().isoformat()
-            self.client.table('complaints').update(update_data).eq('tracking_id', tracking_id).execute()
+            encrypted_data = encrypt_complaint_payload(update_data)
+            self.client.table('complaints').update(encrypted_data).eq('tracking_id', tracking_id).execute()
             return True
         except Exception as e:
             logger.error(f"Error updating complaint: {e}")
@@ -113,7 +128,8 @@ class DatabaseService:
             return None
 
         try:
-            response = self.client.table('evidence').insert(evidence_data).execute()
+            encrypted_data = encrypt_evidence_payload(evidence_data)
+            response = self.client.table('evidence').insert(encrypted_data).execute()
             return response.data[0]['id'] if response.data else None
         except Exception as e:
             logger.error(f"Error creating evidence: {e}")

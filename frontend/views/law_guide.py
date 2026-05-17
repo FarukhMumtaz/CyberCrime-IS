@@ -4,7 +4,11 @@ Modern Premium Version
 """
 
 import streamlit as st
-from components import LawGuide
+
+try:
+    from frontend.components import LawGuide
+except ImportError:
+    from components import LawGuide
 
 def render_law_guide_page():
     st.markdown("## ⚖️ CYBER LAW REPOSITORY")

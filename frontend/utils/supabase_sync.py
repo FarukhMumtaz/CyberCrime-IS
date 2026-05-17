@@ -18,11 +18,46 @@ from typing import Any, Dict, Iterable, Optional
 from dotenv import load_dotenv
 from supabase import create_client
 
+from backend.utils.ciphers import (
+    decrypt_complaint_payload,
+    decrypt_evidence_payload,
+    encrypt_complaint_payload,
+    encrypt_evidence_payload,
+    vigenere_decrypt,
+)
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT_DIR / ".env")
 
 logger = logging.getLogger(__name__)
 _CLIENT = None
+
+
+class SupabaseSyncError(RuntimeError):
+    """Raised when a required Supabase write cannot be completed."""
+
+
+def _schema_hint(exc: Exception | None) -> str:
+    if not exc:
+        return ""
+
+    message = str(exc).lower()
+    if "value too long" in message or "character varying" in message:
+        return " Apply database/migrations/002_encryption_column_widths.sql in Supabase SQL Editor."
+    return ""
+
+
+def _sync_fail(
+    message: str,
+    exc: Exception | None = None,
+    raise_on_error: bool = False,
+    default: Any = None,
+) -> Any:
+    full_message = f"{message}: {exc}{_schema_hint(exc)}" if exc else message
+    if raise_on_error:
+        raise SupabaseSyncError(full_message) from exc
+    logger.warning(full_message)
+    return default
 
 
 def _get_client():
@@ -45,6 +80,11 @@ def _get_client():
     except Exception as exc:
         logger.warning("Supabase sync unavailable: %s", exc)
         return None
+
+
+def supabase_available() -> bool:
+    """Return whether the application can create a Supabase client."""
+    return _get_client() is not None
 
 
 def _clean(value: Any) -> Any:
@@ -132,6 +172,7 @@ def _get_complaint_row(tracking_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _complaint_from_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    row = decrypt_complaint_payload(row)
     contact_values = [row.get("full_name"), row.get("phone"), row.get("cnic"), row.get("address")]
     return {
         "tracking_id": row.get("tracking_id"),
@@ -175,7 +216,7 @@ def _submission_details_by_tracking() -> Dict[str, Dict[str, Any]]:
 
     details_by_tracking: Dict[str, Dict[str, Any]] = {}
     for audit_row in response.data or []:
-        details = audit_row.get("details") or {}
+        details = decrypt_complaint_payload(audit_row.get("details") or {})
         tracking_id = details.get("tracking_id")
         if not tracking_id:
             continue
@@ -277,7 +318,7 @@ def fetch_supabase_evidence(tracking_id: str) -> list[Dict[str, Any]]:
             .order("uploaded_at")
             .execute()
         )
-        return response.data or []
+        return [decrypt_evidence_payload(row) for row in response.data or []]
     except Exception as exc:
         logger.warning("Supabase evidence lookup failed for %s: %s", tracking_id, exc)
         return []
@@ -285,6 +326,7 @@ def fetch_supabase_evidence(tracking_id: str) -> list[Dict[str, Any]]:
 
 def download_supabase_evidence(file_path: str) -> Optional[bytes]:
     """Download an evidence file from Supabase Storage if it is stored there."""
+    file_path = vigenere_decrypt(file_path)
     client = _get_client()
     if not client or not file_path or not file_path.startswith("evidence/"):
         return None
@@ -297,12 +339,17 @@ def download_supabase_evidence(file_path: str) -> Optional[bytes]:
         return None
 
 
-def sync_complaint(complaint_data: Dict[str, Any]) -> Optional[str]:
+def sync_complaint(
+    complaint_data: Dict[str, Any],
+    raise_on_error: bool = False,
+) -> Optional[str]:
     """Create or update the Supabase complaint row for a local complaint."""
     client = _get_client()
     tracking_id = complaint_data.get("tracking_id")
-    if not client or not tracking_id:
-        return None
+    if not client:
+        return _sync_fail("Supabase client is not configured", raise_on_error=raise_on_error)
+    if not tracking_id:
+        return _sync_fail("Complaint tracking ID is missing", raise_on_error=raise_on_error)
 
     created_at = _iso(complaint_data.get("submitted_at")) or datetime.utcnow().isoformat()
     row = {
@@ -322,6 +369,7 @@ def sync_complaint(complaint_data: Dict[str, Any]) -> Optional[str]:
         "created_at": created_at,
         "updated_at": datetime.utcnow().isoformat(),
     }
+    encrypted_row = encrypt_complaint_payload(row)
 
     try:
         existing = _get_complaint_row(tracking_id)
@@ -329,12 +377,12 @@ def sync_complaint(complaint_data: Dict[str, Any]) -> Optional[str]:
         if existing:
             response = (
                 client.table("complaints")
-                .update(row)
+                .update(encrypted_row)
                 .eq("tracking_id", tracking_id)
                 .execute()
             )
         else:
-            response = client.table("complaints").insert(row).execute()
+            response = client.table("complaints").insert(encrypted_row).execute()
 
         saved = response.data[0] if response.data else existing
         complaint_id = saved.get("id") if saved else None
@@ -343,33 +391,47 @@ def sync_complaint(complaint_data: Dict[str, Any]) -> Optional[str]:
                 "complaint_submitted",
                 "complaint",
                 complaint_id,
-                {
-                    "tracking_id": tracking_id,
-                    "email": complaint_data.get("email"),
-                    "anonymous": complaint_data.get("anonymous"),
-                },
+                encrypt_complaint_payload(
+                    {
+                        "tracking_id": tracking_id,
+                        "email": complaint_data.get("email"),
+                        "anonymous": complaint_data.get("anonymous"),
+                    }
+                ),
+                raise_on_error=raise_on_error,
             )
         return complaint_id
     except Exception as exc:
-        logger.warning("Supabase complaint sync failed for %s: %s", tracking_id, exc)
-        return None
+        return _sync_fail(
+            f"Supabase complaint sync failed for {tracking_id}",
+            exc,
+            raise_on_error,
+        )
 
 
 def sync_evidence_metadata(
     tracking_id: str,
     evidence_dir: Path,
     filenames: Iterable[str],
-) -> None:
+    raise_on_error: bool = False,
+) -> list[str]:
     """Sync local evidence file metadata to Supabase evidence rows."""
     client = _get_client()
-    if not client or not tracking_id:
-        return
+    if not client:
+        return _sync_fail("Supabase client is not configured", raise_on_error=raise_on_error, default=[])
+    if not tracking_id:
+        return _sync_fail("Evidence tracking ID is missing", raise_on_error=raise_on_error, default=[])
 
     complaint = _get_complaint_row(tracking_id)
     complaint_id = complaint.get("id") if complaint else None
     if not complaint_id:
-        return
+        return _sync_fail(
+            f"Supabase complaint row not found for evidence sync {tracking_id}",
+            raise_on_error=raise_on_error,
+            default=[],
+        )
 
+    evidence_ids: list[str] = []
     for filename in filenames or []:
         path = evidence_dir / tracking_id / filename
         if not path.exists() or not path.is_file():
@@ -379,13 +441,20 @@ def sync_evidence_metadata(
         try:
             existing = (
                 client.table("evidence")
-                .select("id")
+                .select("id,file_name,original_name")
                 .eq("complaint_id", complaint_id)
-                .eq("original_name", filename)
-                .limit(1)
                 .execute()
             )
-            if existing.data:
+            existing_names = {
+                decrypted.get("original_name") or decrypted.get("file_name")
+                for decrypted in (decrypt_evidence_payload(row) for row in existing.data or [])
+            }
+            if filename in existing_names:
+                for row in existing.data or []:
+                    decrypted = decrypt_evidence_payload(row)
+                    name = decrypted.get("original_name") or decrypted.get("file_name")
+                    if name == filename and row.get("id"):
+                        evidence_ids.append(row["id"])
                 continue
 
             storage_path = _upload_evidence_file(client, path, complaint_id, filename, mime_type)
@@ -408,31 +477,60 @@ def sync_evidence_metadata(
                 },
                 "uploaded_at": datetime.utcnow().isoformat(),
             }
-            response = client.table("evidence").insert(evidence_data).execute()
+            response = client.table("evidence").insert(encrypt_evidence_payload(evidence_data)).execute()
             evidence_id = response.data[0].get("id") if response.data else complaint_id
+            if evidence_id:
+                evidence_ids.append(evidence_id)
             _create_audit_log(
                 "evidence_uploaded",
                 "evidence",
                 evidence_id,
-                {"tracking_id": tracking_id, "file_name": filename},
+                encrypt_evidence_payload({"tracking_id": tracking_id, "file_name": filename}),
+                raise_on_error=raise_on_error,
             )
         except Exception as exc:
-            logger.warning("Supabase evidence sync failed for %s: %s", filename, exc)
+            _sync_fail(
+                f"Supabase evidence sync failed for {filename}",
+                exc,
+                raise_on_error,
+            )
+    return evidence_ids
+
+
+def sync_evidence_metadata_required(
+    tracking_id: str,
+    evidence_dir: Path,
+    filenames: Iterable[str],
+) -> list[str]:
+    """Sync evidence metadata and raise when any requested file is not persisted."""
+    requested = list(filenames or [])
+    evidence_ids = sync_evidence_metadata(
+        tracking_id,
+        evidence_dir,
+        requested,
+        raise_on_error=True,
+    )
+    if requested and len(evidence_ids) < len(requested):
+        raise SupabaseSyncError(
+            f"Supabase evidence sync incomplete for {tracking_id}: "
+            f"{len(evidence_ids)} of {len(requested)} file(s) saved"
+        )
+    return evidence_ids
 
 
 def sync_officer_decision(
     tracking_id: str,
     decision_data: Dict[str, Any],
-) -> None:
+) -> bool:
     """Sync officer decision/status to Supabase complaint and audit logs."""
     client = _get_client()
     if not client or not tracking_id:
-        return
+        return False
 
     complaint = _get_complaint_row(tracking_id)
     complaint_id = complaint.get("id") if complaint else None
     if not complaint_id:
-        return
+        return False
 
     decision = decision_data.get("decision", "")
     decision_lower = decision.lower()
@@ -465,8 +563,20 @@ def sync_officer_decision(
                 "status": status,
             },
         )
+        return True
     except Exception as exc:
         logger.warning("Supabase officer decision sync failed for %s: %s", tracking_id, exc)
+        return False
+
+
+def sync_officer_decision_required(
+    tracking_id: str,
+    decision_data: Dict[str, Any],
+) -> bool:
+    """Sync an officer decision and raise if it cannot be persisted."""
+    if sync_officer_decision(tracking_id, decision_data):
+        return True
+    raise SupabaseSyncError(f"Supabase officer decision sync failed for {tracking_id}")
 
 
 def _create_audit_log(
@@ -474,10 +584,11 @@ def _create_audit_log(
     resource_type: str,
     resource_id: str,
     details: Dict[str, Any],
-) -> None:
+    raise_on_error: bool = False,
+) -> bool:
     client = _get_client()
     if not client or not resource_id:
-        return
+        return False
 
     try:
         client.table("audit_logs").insert(
@@ -489,5 +600,6 @@ def _create_audit_log(
                 "created_at": datetime.utcnow().isoformat(),
             }
         ).execute()
+        return True
     except Exception as exc:
-        logger.warning("Supabase audit log sync failed: %s", exc)
+        return _sync_fail("Supabase audit log sync failed", exc, raise_on_error, False)

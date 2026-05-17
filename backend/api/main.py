@@ -78,6 +78,14 @@ except ImportError as e:
         logger.error(f"Failed to import SecurityUtils: {fallback_error}")
         SecurityUtils = None
 
+try:
+    from backend.utils.ciphers import encrypt_evidence_payload
+except ImportError:
+    try:
+        from utils.ciphers import encrypt_evidence_payload
+    except ImportError:
+        encrypt_evidence_payload = None
+
 # Environment variables are loaded before service initialization above.
 
 # Configure logging
@@ -325,15 +333,12 @@ async def create_complaint(
     try:
         tracking_id = generate_tracking_id()
 
-        # Encrypt sensitive data
-        encrypted_cnic = encrypt_data(complaint.cnic) if complaint.cnic else None
-
         complaint_data = {
             "tracking_id": tracking_id,
             "user_id": user_id,
             "full_name": complaint.full_name,
             "phone": complaint.phone,
-            "cnic": encrypted_cnic,
+            "cnic": complaint.cnic,
             "address": complaint.address,
             "incident_date": complaint.incident_date,
             "location": complaint.location,
@@ -446,7 +451,11 @@ async def upload_evidence(
                 "action": "evidence_uploaded",
                 "resource_type": "evidence",
                 "resource_id": evidence_id or complaint_id,
-                "details": {"file_name": file.filename, "complaint_id": complaint_id}
+                "details": (
+                    encrypt_evidence_payload({"file_name": file.filename, "complaint_id": complaint_id})
+                    if encrypt_evidence_payload
+                    else {"file_name": file.filename, "complaint_id": complaint_id}
+                )
             })
 
             uploaded_files.append({
@@ -482,10 +491,6 @@ async def get_complaint(tracking_id: str, user_id: str = Depends(verify_token)):
         complaint = db_service.get_complaint(tracking_id, user_id)
         if not complaint:
             raise HTTPException(status_code=404, detail="Complaint not found")
-
-        # Decrypt sensitive data
-        if complaint.get('cnic'):
-            complaint['cnic'] = decrypt_data(complaint['cnic'])
 
         return {"complaint": complaint}
 

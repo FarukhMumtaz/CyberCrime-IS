@@ -4,7 +4,11 @@ Modern Premium Version
 """
 
 import streamlit as st
-from components import FAQSection
+
+try:
+    from frontend.components import FAQSection
+except ImportError:
+    from components import FAQSection
 
 def render_help_page():
     st.markdown("## 🛰️ HELP & SUPPORT CENTER")

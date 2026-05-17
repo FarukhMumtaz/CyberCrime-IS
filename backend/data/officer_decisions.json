@@ -1,75 +1,14 @@
 {
-  "CCRS-PK-2026-0FAB2DBF": {
-    "officer_id": "CYBER2026AKIFNAVEED",
-    "tracking_id": "CCRS-PK-2026-0FAB2DBF",
-    "decision": "Solve - Case Solved Successfully",
-    "notes": "tests............",
-    "decided_at": "2026-05-15T01:40:46.364436"
-  },
-  "CCRS-PK-2026-A9C04256": {
-    "officer_id": "CYBER2026AKIFNAVEED",
-    "decision": "Approve",
-    "notes": "review",
-    "timestamp": "2026-05-15T02:33:20.557991"
-  },
-  "CCRS-PK-2026-058F41A3": {
-    "officer_id": "CYBER2026HAMZAALI",
-    "decision": "Solve",
-    "notes": "Solved ",
-    "timestamp": "2026-05-15T02:51:18.815438"
-  },
-  "CCRS-PK-2026-B596066C": {
-    "officer_id": "CYBER2026HAMZAALI",
-    "decision": "Solve",
-    "notes": "DHFKAD",
-    "timestamp": "2026-05-15T03:05:32.800534"
-  },
-  "CCRS-PK-2026-D53D476B": {
-    "officer_id": "CYBER2026HAMZAALI",
-    "decision": "Solve",
-    "notes": "",
-    "timestamp": "2026-05-15T03:07:59.957144"
-  },
-  "CCRS-PK-2026-ECB04D09": {
-    "officer_id": "CYBER2026UMAIRMALIK",
-    "decision": "Reject",
-    "notes": "no specific details",
-    "timestamp": "2026-05-15T22:59:11.486358"
-  },
-  "CCRS-PK-2026-879F0347": {
-    "officer_id": "CYBER2026FARUKHMUMTAZ",
-    "decision": "Approve",
-    "notes": "yeah good",
-    "timestamp": "2026-05-15T23:44:41.412208"
-  },
-  "CCRS-PK-2026-667C82AB": {
-    "officer_id": "CYBER2026FARUKHMUMTAZ",
-    "decision": "Solve",
-    "notes": "good",
-    "timestamp": "2026-05-15T23:45:56.494419"
-  },
-  "CCRS-PK-2026-C15F13": {
+  "CCRS-PK-2026-C7F17C": {
     "officer_id": "CYBER2026FARUKH",
     "decision": "Reject",
-    "notes": "fake",
-    "timestamp": "2026-05-16T02:13:55.238200"
+    "notes": "GOOD",
+    "timestamp": "2026-05-17T22:20:20.086085"
   },
-  "CCRS-PK-2026-7BAD0B": {
+  "CCRS-PK-2026-D62C18": {
     "officer_id": "CYBER2026FARUKH",
     "decision": "Solve",
-    "notes": "good",
-    "timestamp": "2026-05-16T10:47:17.798956"
-  },
-  "CCRS-PK-2026-0B95EE": {
-    "officer_id": "CYBER2026UMAIRMALIK",
-    "decision": "Solve",
-    "notes": "good",
-    "timestamp": "2026-05-16T12:31:57.125203"
-  },
-  "CCRS-PK-2026-7FB0EE": {
-    "officer_id": "CYBER2026FARUKH",
-    "decision": "Approve",
-    "notes": "",
-    "timestamp": "2026-05-16T12:35:30.529318"
+    "notes": "GOOD",
+    "timestamp": "2026-05-17T22:53:26.898032"
   }
 }

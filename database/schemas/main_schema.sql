@@ -23,12 +23,12 @@ CREATE TABLE IF NOT EXISTS complaints (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     tracking_id VARCHAR(20) UNIQUE NOT NULL, -- Format: CCRS-PK-YYYY-XXXXXX
     user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- NULL for anonymous
-    full_name VARCHAR(255),
-    phone VARCHAR(20),
-    cnic VARCHAR(13), -- Encrypted if stored
+    full_name TEXT,
+    phone TEXT,
+    cnic TEXT, -- Encrypted if stored
     address TEXT,
     incident_date DATE NOT NULL,
-    location VARCHAR(255),
+    location TEXT,
     complaint_reason VARCHAR(100) NOT NULL,
     description TEXT NOT NULL,
     status VARCHAR(50) DEFAULT 'submitted', -- submitted, under_review, resolved
@@ -42,11 +42,11 @@ CREATE TABLE IF NOT EXISTS complaints (
 CREATE TABLE IF NOT EXISTS evidence (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     complaint_id UUID NOT NULL REFERENCES complaints(id) ON DELETE CASCADE,
-    file_name VARCHAR(255) NOT NULL,
-    original_name VARCHAR(255) NOT NULL,
-    file_path VARCHAR(500) NOT NULL, -- Supabase storage path
+    file_name TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    file_path TEXT NOT NULL, -- Supabase storage path
     file_type VARCHAR(10) NOT NULL, -- video, image, pdf
-    mime_type VARCHAR(100) NOT NULL,
+    mime_type TEXT NOT NULL,
     file_size BIGINT NOT NULL, -- in bytes
     sha256_hash VARCHAR(64) NOT NULL, -- For integrity
     is_encrypted BOOLEAN DEFAULT TRUE,

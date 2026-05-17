@@ -12,7 +12,12 @@ import logging
 from datetime import datetime
 import uuid
 import json
-from frontend.utils.supabase_sync import sync_complaint, sync_evidence_metadata
+import shutil
+from frontend.utils.supabase_sync import (
+    SupabaseSyncError,
+    sync_complaint,
+    sync_evidence_metadata_required,
+)
 
 # Ensure local path imports work
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -56,6 +61,11 @@ def save_evidence(tracking_id, uploaded_files):
         saved_files.append(uploaded_file.name)
     
     return saved_files
+
+def cleanup_staged_evidence(tracking_id):
+    case_evidence_dir = EVIDENCE_DIR / tracking_id
+    if case_evidence_dir.exists() and case_evidence_dir.is_dir():
+        shutil.rmtree(case_evidence_dir, ignore_errors=True)
 
 def render_report_form(set_page_config: bool = True):
     if set_page_config:
@@ -125,11 +135,19 @@ def render_report_form(set_page_config: bool = True):
             "status": "pending"
         }
 
+        try:
+            sync_complaint(complaint_data, raise_on_error=True)
+            sync_evidence_metadata_required(tracking_id, EVIDENCE_DIR, evidence_filenames)
+        except SupabaseSyncError as exc:
+            cleanup_staged_evidence(tracking_id)
+            logger.error("Central database save failed for %s: %s", tracking_id, exc)
+            st.error("Case could not be saved to the central Supabase database.")
+            st.warning(str(exc))
+            return
+
         complaints = load_complaints()
         complaints[tracking_id] = complaint_data
         save_complaints(complaints)
-        sync_complaint(complaint_data)
-        sync_evidence_metadata(tracking_id, EVIDENCE_DIR, evidence_filenames)
 
         st.success(f"🛰️ CASE REGISTERED. TRACKING ID: {tracking_id}")
         st.info("Your evidence has been encrypted and stored in our secure repository.")

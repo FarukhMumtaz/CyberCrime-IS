@@ -13,7 +13,11 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from frontend.utils.supabase_sync import fetch_supabase_complaint, fetch_supabase_officer_decisions
+from frontend.utils.supabase_sync import (
+    fetch_supabase_complaint,
+    fetch_supabase_officer_decisions,
+    supabase_available,
+)
 
 # Database files
 COMPLAINTS_FILE = ROOT_DIR / "backend" / "data" / "complaints.json"
@@ -29,19 +33,34 @@ def load_json(file_path):
     return {}
 
 def get_shared_tracking_record(tracking_id):
-    local_complaints = load_json(COMPLAINTS_FILE)
-    local_decisions = load_json(DECISIONS_FILE)
     supabase_complaint = fetch_supabase_complaint(tracking_id)
     supabase_decisions = fetch_supabase_officer_decisions()
+    if supabase_complaint:
+        decision = supabase_decisions.get(tracking_id)
+        if not decision:
+            status = str(supabase_complaint.get("status", "")).lower()
+            status_decisions = {
+                "resolved": "Solve",
+                "under_review": "Approve",
+                "rejected": "Reject",
+            }
+            if status in status_decisions:
+                decision = {
+                    "decision": status_decisions[status],
+                    "notes": "Status updated by officer.",
+                    "timestamp": supabase_complaint.get("updated_at") or supabase_complaint.get("submitted_at"),
+                }
+        return supabase_complaint, decision
+
+    if supabase_available():
+        return None, None
+
+    local_complaints = load_json(COMPLAINTS_FILE)
+    local_decisions = load_json(DECISIONS_FILE)
 
     complaint = local_complaints.get(tracking_id)
-    if supabase_complaint:
-        complaint = {**complaint, **supabase_complaint} if complaint else supabase_complaint
-
     decision = local_decisions.get(tracking_id)
-    if tracking_id in supabase_decisions:
-        decision = {**decision, **supabase_decisions[tracking_id]} if decision else supabase_decisions[tracking_id]
-    elif complaint:
+    if complaint and not decision:
         status = str(complaint.get("status", "")).lower()
         status_decisions = {
             "resolved": "Solve",
