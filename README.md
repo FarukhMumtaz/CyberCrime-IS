@@ -1,5 +1,6 @@
 # Cyber Crime Reporting System with Electronic Evidence Module
-- **DEMO:** https://cyber-crime-reporting-system-sre.streamlit.app/
+- **Officer Portal:** https://cybercrime-officerport.streamlit.app/
+- **User Portal:** https://cybercrme-userport.streamlit.app/
 - A secure, government-grade web platform for Pakistani citizens to report cybercrimes online, inspired by the official Pakistani cybercrime reporting system. Enhanced with modern cybersecurity, digital evidence management, AI assistance, and secure cloud deployment practices.
 
 ## Features
