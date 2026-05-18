@@ -1,590 +1,530 @@
 # 📊 System Diagrams & Architecture Documentation
 
 **Cyber Crime Reporting System - Pakistan**  
-**Comprehensive Visual Guide to System Architecture & Workflows**
+**Professional Visual Guide to System Architecture & Workflows**
 
 ---
 
 ## 📋 Table of Contents
 
-1. [System Architecture (3-Layer)](#system-architecture)
-2. [User Roles & Actors](#user-roles)
-3. [Use Cases & Features](#use-cases)
-4. [Data Flow Diagram](#data-flow)
-5. [Citizen Complaint Workflow](#citizen-workflow)
-6. [Officer Case Management Workflow](#officer-workflow)
-7. [System Component Diagram](#components)
-8. [Database Schema Overview](#database-schema)
-9. [Deployment Architecture](#deployment)
-10. [Security Architecture](#security)
+1. [System Architecture](#system-architecture)
+2. [Citizen Complaint Flow](#citizen-flow)
+3. [Officer Case Management](#officer-flow)
+4. [Database Structure](#database)
+5. [Component Architecture](#components)
+6. [Security Layers](#security)
+7. [Deployment Pipeline](#deployment)
+8. [User Interactions](#interactions)
 
 ---
 
-## 🏗️ System Architecture (3-Layer)
+## 🏗️ System Architecture
 
-### Overview
-```
-┌─────────────────────────────────────────────────────┐
-│             PRESENTATION LAYER                      │
-│  ┌─────────────────────────────────────────────┐   │
-│  │  Streamlit Frontend (Citizen & Officer UI) │   │
-│  │  - Report Form Page                         │   │
-│  │  - Officer Login & Dashboard                │   │
-│  │  - Law Guide & Tracking                     │   │
-│  │  - Chat Bot & Help                          │   │
-│  └─────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────┘
-                      ⬇️ HTTP/REST
-┌─────────────────────────────────────────────────────┐
-│             APPLICATION LAYER                       │
-│  ┌────────────────────────────────────────────┐    │
-│  │    FastAPI Backend Services                │    │
-│  │  ┌──────────────────────────────────────┐  │    │
-│  │  │ Services                             │  │    │
-│  │  │ - Database Service (CRUD)            │  │    │
-│  │  │ - File Service (Upload/Download)     │  │    │
-│  │  │ - AI Service (Groq Integration)      │  │    │
-│  │  │ - Email Service (Notifications)      │  │    │
-│  │  │ - Security Service (Encryption)      │  │    │
-│  │  └──────────────────────────────────────┘  │    │
-│  └────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────┘
-                      ⬇️ PostgreSQL
-┌─────────────────────────────────────────────────────┐
-│             DATA LAYER                              │
-│  ┌────────────────────────────────────────────┐    │
-│  │    Supabase (PostgreSQL + Storage)         │    │
-│  │  ┌──────────────────────────────────────┐  │    │
-│  │  │ Databases                            │  │    │
-│  │  │ - Users (citizens & officers)        │  │    │
-│  │  │ - Complaints                         │  │    │
-│  │  │ - Evidence (encrypted files)         │  │    │
-│  │  │ - Officer Decisions                  │  │    │
-│  │  │ - Cyber Laws (PECA 2016)             │  │    │
-│  │  │ - Audit Logs                         │  │    │
-│  │  └──────────────────────────────────────┘  │    │
-│  └────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────┘
+### 3-Layer Architecture Overview
+
+```mermaid
+graph TB
+    subgraph Frontend["🎨 PRESENTATION LAYER"]
+        FE1["📱 Streamlit Citizen Portal"]
+        FE2["👮 Streamlit Officer Portal"]
+    end
+
+    subgraph Backend["🔧 APPLICATION LAYER"]
+        BE1["⚙️ FastAPI Backend"]
+        BE2["🔐 Security Services"]
+        BE3["🤖 AI Services (Groq)"]
+        BE4["📧 Notification Services"]
+    end
+
+    subgraph Database["💾 DATA LAYER"]
+        DB1["🗄️ PostgreSQL Database"]
+        DB2["📁 Secure Storage"]
+        DB3["🔑 Encryption Layer"]
+    end
+
+    Frontend -->|REST API| Backend
+    Backend -->|SQL Queries| Database
+    Backend -->|File Operations| Database
+    
+    style Frontend fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    style Backend fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    style Database fill:#e8f5e9,stroke:#1b5e20,stroke-width:3px
 ```
 
 ---
 
-## 👥 User Roles & Actors
+## 👥 User Roles & Permissions
 
-### Actor Relationships
-```
-┌──────────────────────────────────────────────────┐
-│                  SYSTEM USERS                     │
-├──────────────────────────────────────────────────┤
-│                                                  │
-│  👤 CITIZEN / REPORTER                           │
-│  ├─ Can file complaints (anonymous or registered)
-│  ├─ Can upload evidence (images/videos/PDFs)   │
-│  ├─ Can track complaint status                 │
-│  ├─ Can view applicable laws                   │
-│  └─ Can chat with AI assistant                 │
-│                                                  │
-│  👮 LAW ENFORCEMENT OFFICER                     │
-│  ├─ Can login with auto-generated ID           │
-│  ├─ Can view pending complaints                │
-│  ├─ Can review evidence                        │
-│  ├─ Can search cyber laws                      │
-│  ├─ Can record decisions (Approve/Reject)      │
-│  ├─ Can add investigation notes                │
-│  └─ Can view statistics & analytics            │
-│                                                  │
-│  👨‍💼 SYSTEM ADMINISTRATOR                         │
-│  ├─ Can manage officer accounts                │
-│  ├─ Can access audit logs                      │
-│  ├─ Can configure system settings              │
-│  ├─ Can generate reports                       │
-│  └─ Can manage system backups                  │
-│                                                  │
-└──────────────────────────────────────────────────┘
-```
+```mermaid
+graph LR
+    subgraph Citizens["👤 CITIZENS"]
+        C1["📋 File Complaint"]
+        C2["📤 Upload Evidence"]
+        C3["📍 Track Status"]
+        C4["📚 View Laws"]
+    end
 
----
+    subgraph Officers["👮 OFFICERS"]
+        O1["🔐 Login/Register"]
+        O2["📊 View Dashboard"]
+        O3["📋 Review Cases"]
+        O4["✅ Make Decisions"]
+        O5["📝 Add Notes"]
+    end
 
-## 🎯 Use Cases & Features
+    subgraph Admins["👨‍💼 ADMINISTRATORS"]
+        A1["👤 Manage Officers"]
+        A2["📊 View Analytics"]
+        A3["🔐 Security Logs"]
+        A4["⚙️ System Config"]
+    end
 
-### Complete Feature Map
-```
-CYBER CRIME REPORTING SYSTEM
-│
-├── 👤 CITIZEN FEATURES
-│   ├── 📋 Submit Complaint
-│   │   ├─ Anonymous reporting
-│   │   ├─ Registered reporting (CNIC)
-│   │   └─ Form validation
-│   ├── 📤 Upload Evidence
-│   │   ├─ Images (JPG, PNG)
-│   │   ├─ Videos (MP4, MOV)
-│   │   ├─ PDFs
-│   │   └─ Encryption
-│   ├── 📍 Track Complaint
-│   │   ├─ View tracking ID
-│   │   ├─ Check status updates
-│   │   └─ See officer notes
-│   ├── 📚 View Cyber Laws
-│   │   ├─ Search PECA laws
-│   │   ├─ Filter by category
-│   │   └─ View punishments
-│   └── 🤖 AI Assistance
-│       ├─ Complaint summarization
-│       ├─ Legal category detection
-│       └─ Smart recommendations
-│
-├── 👮 OFFICER FEATURES
-│   ├── 🔐 Officer Login
-│   │   ├─ ID: CYBER2026 + NAME
-│   │   ├─ Password authentication
-│   │   └─ Session management
-│   ├── 📊 View Dashboard
-│   │   ├─ Pending cases count
-│   │   ├─ Performance metrics
-│   │   └─ Case distribution
-│   ├── 📋 Review Complaints
-│   │   ├─ Case details
-│   │   ├─ View evidence
-│   │   └─ Citizen information
-│   ├── ⚖️ Record Decisions
-│   │   ├─ Approve case
-│   │   ├─ Reject case
-│   │   └─ Request information
-│   ├── 📝 Investigation Notes
-│   │   ├─ Add findings
-│   │   ├─ Update status
-│   │   └─ Timestamp tracking
-│   └── 📈 View Statistics
-│       ├─ Cases processed
-│       ├─ Approval rate
-│       └─ Time metrics
-│
-└── 👨‍💼 ADMIN FEATURES
-    ├── 👤 Officer Management
-    ├── 📊 System Analytics
-    ├── 🔐 Security Logs
-    ├── ⚙️ Configuration
-    └── 📋 Reports
+    System["Cyber Crime System"]
+    
+    Citizens -.->|Access| System
+    Officers -.->|Access| System
+    Admins -.->|Manage| System
+    
+    style Citizens fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    style Officers fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Admins fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
 ```
 
 ---
 
-## 📊 Data Flow Diagram
+## 📋 Citizen Complaint Workflow
 
-### End-to-End Flow
-```
-CITIZEN COMPLAINT FLOW:
+### End-to-End Citizen Journey
 
-1. SUBMISSION
-   Citizen → Complaint Form → Validation → Save to DB
-              ↓
-           JSON File / Supabase
-              ↓
-         Generate Tracking ID
-              ↓
-      Display to Citizen ✅
+```mermaid
+sequenceDiagram
+    participant Citizen as 👤 Citizen
+    participant Portal as 🌐 Portal
+    participant Backend as ⚙️ Backend
+    participant Database as 🗄️ Database
+    participant Officer as 👮 Officer
 
-2. OFFICER REVIEW
-   Officer Portal → Fetch Cases → Load Details
-                      ↓
-              Display Complaint
-                      ↓
-         View Evidence (Encrypted)
-                      ↓
-      Check Applicable Laws (AI)
-                      ↓
-           Make Decision
-                      ↓
-         Save Decision + Notes
-                      ↓
-      Update Case Status ✅
+    Citizen->>Portal: 📱 Open App
+    Portal->>Portal: ✅ Load Home Page
+    
+    Citizen->>Portal: 📋 Click "File Complaint"
+    Portal->>Portal: 📝 Show Form
+    
+    Citizen->>Portal: ✍️ Fill Details & Upload Evidence
+    Portal->>Backend: 🔒 Validate & Encrypt
+    Backend->>Backend: 🔐 Check Security
+    
+    Backend->>Database: 💾 Save Complaint
+    Database-->>Backend: ✅ Record ID
+    Backend-->>Portal: 🎫 Generate Tracking ID
+    Portal-->>Citizen: 📲 Show Success + Tracking ID
+    
+    Note over Citizen: ⏳ Later...
+    
+    Citizen->>Portal: 🔍 Enter Tracking ID
+    Portal->>Backend: 📊 Query Status
+    Backend->>Database: 📂 Fetch Complaint
+    Database-->>Backend: 📋 Return Data
+    Backend-->>Portal: 📈 Status Info
+    Portal-->>Citizen: ✅ Show Status & Officer Notes
 
-3. CITIZEN TRACKING
-   Citizen → Enter Tracking ID → Query Database
-                      ↓
-            Return Case Status
-                      ↓
-        Display Officer Notes
-                      ↓
-         Show Current Status ✅
-```
-
----
-
-## 👤 Citizen Complaint Workflow
-
-### Detailed Complaint Journey
-```
-START
-  │
-  ├─ Citizen Opens Portal
-  │  └─ Home Page
-  │     ├─ New complaint?
-  │     └─ Track existing?
-  │
-  ├─ File New Complaint
-  │  ├─ Select: Anonymous or Registered
-  │  ├─ Fill Complaint Form
-  │  │  ├─ Category (Hacking, Fraud, etc)
-  │  │  ├─ Description
-  │  │  └─ Attachments
-  │  ├─ Upload Evidence
-  │  │  ├─ Image/Video/PDF
-  │  │  ├─ Encryption
-  │  │  └─ Validation
-  │  ├─ Form Validation
-  │  │  ├─ Required fields?
-  │  │  ├─ File size OK?
-  │  │  └─ Format valid?
-  │  ├─ Submit Complaint
-  │  │  ├─ Save to Database
-  │  │  ├─ Encrypt Evidence
-  │  │  └─ Generate Tracking ID
-  │  └─ SUCCESS: Show Tracking ID
-  │     └─ Citizen notes down ID
-  │
-  ├─ Track Complaint
-  │  ├─ Enter Tracking ID
-  │  ├─ Query Database
-  │  ├─ Current Status:
-  │  │  ├─ Pending (waiting for officer)
-  │  │  ├─ Under Review (officer reviewing)
-  │  │  ├─ Approved (case accepted)
-  │  │  ├─ Rejected (case rejected)
-  │  │  └─ Closed (finalized)
-  │  └─ Show Officer Notes
-  │
-  └─ END
+    Officer->>Portal: 👮 Login
+    Portal->>Backend: 🔐 Authenticate
+    Backend-->>Portal: ✅ Approved
+    Portal->>Portal: 📊 Show Pending Cases
+    
+    Officer->>Portal: 🔍 Select Case
+    Portal->>Backend: 📚 Fetch Full Details
+    Backend->>Database: 🗄️ Query Case
+    Database-->>Backend: 📋 Case Data
+    Backend-->>Portal: 📄 Display Case
+    
+    Officer->>Portal: ⚖️ Review & Decide
+    Portal->>Backend: 💾 Save Decision
+    Backend->>Database: 📝 Update Status
+    Database-->>Backend: ✅ Saved
+    Backend-->>Portal: ✅ Confirmation
+    
+    Portal-->>Officer: 🎉 Decision Recorded
+    Backend-->>Citizen: 📧 Notification
 ```
 
 ---
 
 ## 👮 Officer Case Management Workflow
 
-### Detailed Officer Journey
-```
-OFFICER LOGIN
-  │
-  ├─ Start Page
-  │  └─ Unregistered? → Register First
-  │     ├─ Enter Name
-  │     ├─ Enter Password
-  │     ├─ Generate ID: CYBER2026 + NAME
-  │     └─ Save Credentials
-  │
-  ├─ Officer Login
-  │  ├─ Enter Officer ID (CYBER2026XXXXX)
-  │  ├─ Enter Password
-  │  ├─ Authenticate
-  │  └─ Create Session
-  │
-  ├─ DASHBOARD
-  │  ├─ Show Pending Cases Count
-  │  ├─ Show Statistics
-  │  │  ├─ Total Reviewed
-  │  │  ├─ Approved Count
-  │  │  ├─ Rejected Count
-  │  │  └─ Pending Count
-  │  └─ Display Case List
-  │
-  ├─ SELECT CASE
-  │  ├─ View Complaint Details
-  │  ├─ View Citizen Info
-  │  ├─ View Evidence
-  │  │  ├─ Images
-  │  │  ├─ Videos
-  │  │  └─ PDFs
-  │  └─ View Category Info
-  │
-  ├─ AI LAW RECOMMENDATIONS
-  │  ├─ Analyze Complaint
-  │  ├─ Suggest PECA Sections
-  │  ├─ Show Punishment Range
-  │  └─ Provide Guidance
-  │
-  ├─ MAKE DECISION
-  │  ├─ Option 1: APPROVE
-  │  │  ├─ Select Section of PECA
-  │  │  ├─ Add Investigation Notes
-  │  │  ├─ Recommend Punishment
-  │  │  └─ Save Decision
-  │  ├─ Option 2: REJECT
-  │  │  ├─ Select Reason
-  │  │  ├─ Add Comments
-  │  │  └─ Save Decision
-  │  └─ Option 3: REQUEST INFO
-  │     ├─ Specify What's Needed
-  │     ├─ Send to Citizen
-  │     └─ Wait for Response
-  │
-  ├─ UPDATE CASE
-  │  ├─ Save to Database
-  │  ├─ Notify Citizen
-  │  ├─ Update Status
-  │  └─ Log Timestamp
-  │
-  └─ DONE ✅
+### Officer Complete Journey
+
+```mermaid
+graph TD
+    A["🎯 Officer Portal Home"] -->|Register/Login| B["🔐 Authentication"]
+    B -->|Valid Credentials| C["📊 Officer Dashboard"]
+    B -->|Invalid| B
+    
+    C -->|View Pending| D["📋 Pending Cases List"]
+    C -->|View Statistics| E["📈 Performance Stats"]
+    
+    D -->|Select Case| F["🔍 Case Details Page"]
+    
+    F -->|View Evidence| G["📁 Evidence Gallery"]
+    F -->|Check Laws| H["📚 AI-Recommended Laws"]
+    F -->|Add Notes| I["✏️ Investigation Notes"]
+    
+    G -->|Reviewed| J["Decision Point"]
+    H -->|Selected| J
+    I -->|Completed| J
+    
+    J -->|APPROVE| K["✅ Case Approved"]
+    J -->|REJECT| L["❌ Case Rejected"]
+    J -->|REQUEST INFO| M["❓ Request Additional Info"]
+    
+    K -->|Save| N["💾 Update Database"]
+    L -->|Save| N
+    M -->|Save| N
+    
+    N -->|Success| O["📧 Notify Citizen"]
+    O -->|Done| P["✨ Case Closed"]
+    
+    P -->|Back to| C
+    
+    style A fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style C fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style K fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style L fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style P fill:#fff9c4,stroke:#f57f17,stroke-width:2px
 ```
 
 ---
 
-## 🔧 System Components
+## 💾 Database Schema & Structure
 
-### Module Architecture
-```
-CYBER CRIME REPORTING SYSTEM
-│
-├── frontend/ (Streamlit)
-│   ├── app.py (Main entry)
-│   ├── pages/
-│   │   ├── report_form.py (Complaint filing)
-│   │   ├── officer_login.py (Officer auth)
-│   │   ├── officer_panel.py (Officer dashboard)
-│   │   ├── law_guide.py (Legal reference)
-│   │   ├── tracking.py (Complaint tracking)
-│   │   └── help.py (Support)
-│   ├── components/
-│   │   └── chatbot.py (AI assistant)
-│   ├── data/
-│   │   └── cyber_laws.py (PECA laws database)
-│   └── utils/
-│       └── supabase_sync.py (DB sync)
-│
-├── backend/ (FastAPI)
-│   ├── api/
-│   │   └── main.py (API routes)
-│   ├── services/
-│   │   ├── database_service.py (CRUD ops)
-│   │   ├── file_service.py (Upload/Download)
-│   │   ├── ai_service.py (Groq API)
-│   │   └── email_service.py (Notifications)
-│   ├── models/ (Pydantic schemas)
-│   └── utils/
-│       ├── security.py (Encryption)
-│       └── ciphers.py (Crypto)
-│
-├── database/
-│   ├── schema.sql (DB structure)
-│   ├── migrations/ (Version control)
-│   └── seeds/ (Initial data)
-│
-└── docs/
-    ├── API.md (API docs)
-    ├── SECURITY.md (Security guide)
-    └── DEPLOYMENT.md (Deploy guide)
-```
+### Complete Database Architecture
 
----
+```mermaid
+graph LR
+    subgraph Users["👥 Users Table"]
+        U["id, email, password_hash<br/>role, created_at"]
+    end
 
-## 💾 Database Schema Overview
+    subgraph Complaints["📋 Complaints Table"]
+        C["id, user_id, category<br/>description, tracking_id<br/>status, created_at"]
+    end
 
-### Core Tables
-```
-users
-  ├─ id (PK)
-  ├─ email
-  ├─ password_hash (bcrypt)
-  ├─ role (citizen/officer/admin)
-  ├─ created_at
-  └─ updated_at
+    subgraph Evidence["📁 Evidence Table"]
+        E["id, complaint_id, file_name<br/>file_type, file_path<br/>file_hash, encrypted"]
+    end
 
-complaints
-  ├─ id (PK)
-  ├─ user_id (FK)
-  ├─ category
-  ├─ description
-  ├─ is_anonymous
-  ├─ tracking_id (UNIQUE)
-  ├─ status (pending/approved/rejected)
-  ├─ created_at
-  └─ updated_at
+    subgraph Officers["👮 Officers Table"]
+        O["id, officer_id, name<br/>password_hash, rank<br/>jurisdiction, created_at"]
+    end
 
-evidence
-  ├─ id (PK)
-  ├─ complaint_id (FK)
-  ├─ file_name
-  ├─ file_type
-  ├─ file_path (encrypted)
-  ├─ file_hash
-  ├─ created_at
-  └─ updated_at
+    subgraph Cases["📌 Cases Table"]
+        CA["id, complaint_id<br/>officer_id, status<br/>assigned_at, completed_at"]
+    end
 
-officers
-  ├─ id (PK)
-  ├─ officer_id (UNIQUE) - CYBER2026 + NAME
-  ├─ name
-  ├─ password_hash (bcrypt)
-  ├─ rank
-  ├─ jurisdiction
-  ├─ created_at
-  └─ updated_at
+    subgraph Decisions["⚖️ Decisions Table"]
+        D["id, case_id, officer_id<br/>decision, peca_section<br/>notes, created_at"]
+    end
 
-cases
-  ├─ id (PK)
-  ├─ complaint_id (FK)
-  ├─ officer_id (FK)
-  ├─ status
-  ├─ assigned_at
-  ├─ completed_at
-  └─ updated_at
+    subgraph Logs["📊 Audit Logs Table"]
+        L["id, user_id, action<br/>resource_type, timestamp<br/>details JSON"]
+    end
 
-decisions
-  ├─ id (PK)
-  ├─ case_id (FK)
-  ├─ officer_id (FK)
-  ├─ decision (approve/reject/request)
-  ├─ peca_section
-  ├─ notes
-  ├─ created_at
-  └─ updated_at
-
-audit_logs
-  ├─ id (PK)
-  ├─ user_id (FK)
-  ├─ action
-  ├─ resource_type
-  ├─ resource_id
-  ├─ timestamp
-  └─ details (JSON)
+    Users -->|1..N| Complaints
+    Complaints -->|1..N| Evidence
+    Complaints -->|1..N| Cases
+    Cases -->|1..1| Officers
+    Cases -->|1..N| Decisions
+    Officers -->|N..1| Decisions
+    Users -->|1..N| Logs
+    
+    style Users fill:#bbdefb,stroke:#1565c0,stroke-width:2px
+    style Complaints fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style Evidence fill:#f8bbd0,stroke:#c2185b,stroke-width:2px
+    style Officers fill:#ffe0b2,stroke:#e65100,stroke-width:2px
+    style Cases fill:#f0f4c3,stroke:#827717,stroke-width:2px
+    style Decisions fill:#d1c4e9,stroke:#512da8,stroke-width:2px
+    style Logs fill:#ffccbc,stroke:#bf360c,stroke-width:2px
 ```
 
 ---
 
-## 🚀 Deployment Architecture
+## 🔧 System Components & Modules
 
-### Cloud Deployment
-```
-┌──────────────────────────────────────────┐
-│        GitHub (Source Control)           │
-│  FarukhMumtaz/CyberCrime-IS              │
-└──────────────────────────────────────────┘
-                    ⬇️ Push
-┌──────────────────────────────────────────┐
-│      Streamlit Cloud (Frontend)          │
-│  ├─ Citizen Portal                       │
-│  └─ Officer Portal                       │
-└──────────────────────────────────────────┘
-                    ⬇️ API Calls
-┌──────────────────────────────────────────┐
-│      Supabase (Backend + Database)       │
-│  ├─ FastAPI Backend                      │
-│  ├─ PostgreSQL Database                  │
-│  ├─ Secure Storage (Evidence)            │
-│  └─ Encryption Layer                     │
-└──────────────────────────────────────────┘
-                    ⬇️ API Call
-┌──────────────────────────────────────────┐
-│       Groq API (AI Services)             │
-│  ├─ Complaint Summarization              │
-│  ├─ Category Detection                   │
-│  └─ Legal Recommendations                │
-└──────────────────────────────────────────┘
-```
+### Frontend & Backend Architecture
 
----
+```mermaid
+graph TB
+    subgraph Frontend["🎨 FRONTEND - Streamlit"]
+        FE_App["app.py<br/>Main Entry Point"]
+        FE_Pages["📄 Pages Module"]
+        FE_Data["📊 Data Module"]
+        FE_Utils["🛠️ Utils Module"]
+        FE_Components["🧩 Components"]
+        
+        FE_App -->|Loads| FE_Pages
+        FE_Pages -->|Uses| FE_Data
+        FE_Pages -->|Uses| FE_Utils
+        FE_Pages -->|Uses| FE_Components
+    end
 
-## 🔐 Security Architecture
+    subgraph Backend["⚙️ BACKEND - FastAPI"]
+        BE_API["api/main.py<br/>API Endpoints"]
+        BE_Services["Services Layer"]
+        BE_DB["Database Layer"]
+        BE_Security["🔐 Security Layer"]
+        
+        BE_API -->|Calls| BE_Services
+        BE_Services -->|Uses| BE_DB
+        BE_Services -->|Uses| BE_Security
+    end
 
-### Multi-Layer Security
-```
-LAYER 1: TRANSPORT SECURITY
-├─ HTTPS/TLS 1.3 (all connections)
-├─ Certificate validation
-└─ Secure headers
+    subgraph Database["💾 DATABASE - Supabase"]
+        DB_SQL["PostgreSQL"]
+        DB_Storage["File Storage"]
+        DB_Cache["Cache Layer"]
+        
+        DB_SQL -->|Stores| DB_Cache
+        DB_Storage -->|Manages| DB_Cache
+    end
 
-LAYER 2: APPLICATION SECURITY
-├─ JWT Authentication
-├─ Session Management
-├─ CORS Configuration
-├─ Rate Limiting
-└─ Input Validation
-
-LAYER 3: DATA SECURITY
-├─ AES-256 Encryption (at rest)
-├─ bcrypt Password Hashing
-├─ Field-level encryption
-├─ Secure token storage
-└─ Evidence file encryption
-
-LAYER 4: DATABASE SECURITY
-├─ Row Level Security (RLS)
-├─ SQL Injection Prevention
-├─ Data Access Control
-├─ Audit Logging
-└─ Automatic Backups
-
-LAYER 5: INFRASTRUCTURE SECURITY
-├─ DDoS Protection
-├─ Firewall Rules
-├─ IP Whitelisting
-├─ Security Groups
-└─ VPC Isolation
+    Frontend -->|REST API| Backend
+    Backend -->|SQL Queries| Database
+    Backend -->|File Ops| Database
+    
+    style Frontend fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style Backend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Database fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
 ```
 
 ---
 
-## 📈 System Interaction Diagram
+## 🔐 Security Architecture - 5 Layers
 
-### Complete User Journey
+### Complete Security Implementation
+
+```mermaid
+graph TB
+    subgraph Layer1["🌐 LAYER 1: Transport Security"]
+        L1_A["HTTPS/TLS 1.3"]
+        L1_B["Certificate Validation"]
+        L1_C["Secure Headers"]
+    end
+
+    subgraph Layer2["🔐 LAYER 2: Application Security"]
+        L2_A["JWT Authentication"]
+        L2_B["Session Management"]
+        L2_C["CORS Policy"]
+        L2_D["Rate Limiting"]
+        L2_E["Input Validation"]
+    end
+
+    subgraph Layer3["🔒 LAYER 3: Data Security"]
+        L3_A["AES-256 Encryption"]
+        L3_B["bcrypt Hashing"]
+        L3_C["Field Encryption"]
+        L3_D["Token Security"]
+    end
+
+    subgraph Layer4["🗄️ LAYER 4: Database Security"]
+        L4_A["Row Level Security"]
+        L4_B["SQL Injection Prevention"]
+        L4_C["Access Control"]
+        L4_D["Audit Logging"]
+        L4_E["Backups"]
+    end
+
+    subgraph Layer5["🛡️ LAYER 5: Infrastructure Security"]
+        L5_A["DDoS Protection"]
+        L5_B["Firewall Rules"]
+        L5_C["IP Whitelisting"]
+        L5_D["VPC Isolation"]
+    end
+
+    Request["🔗 User Request"]
+    
+    Request -->|Passes through| Layer1
+    Layer1 -->|Validates| Layer2
+    Layer2 -->|Secures| Layer3
+    Layer3 -->|Protects| Layer4
+    Layer4 -->|Infrastructure| Layer5
+    Layer5 -->|Allows| Response["✅ Secure Response"]
+    
+    style Layer1 fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style Layer2 fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    style Layer3 fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style Layer4 fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
+    style Layer5 fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
-USER JOURNEY: Citizen Filing Complaint
 
-Time →
+---
 
-Citizen          Portal UI          Backend          Database
-  │                │                   │                │
-  │ Opens App      │                   │                │
-  ├──────────────→ │                   │                │
-  │                │ Load Home         │                │
-  │                │                   │                │
-  │ Click Report   │                   │                │
-  ├──────────────→ │                   │                │
-  │                │ Load Form         │                │
-  │                │                   │                │
-  │ Fill Form      │                   │                │
-  ├──────────────→ │                   │                │
-  │                │ Validate Data     │                │
-  │                ├──────────────────→│                │
-  │                │                   │ Check Business│
-  │                │                   │ Rules          │
-  │                │                   ├───────────────→│
-  │                │                   │                │ Save
-  │                │                   │                │ Record
-  │                │                   │←───────────────┤
-  │                │                   │ Record ID      │
-  │                │←──────────────────┤                │
-  │                │ Generate Tracking │                │
-  │                │ ID                │                │
-  │                │                   │                │
-  │ Success! ✅    │                   │                │
-  │←──────────────┤                    │                │
-  │ Tracking ID   │                    │                │
+## 🚀 Deployment Pipeline
+
+### Cloud Infrastructure Flow
+
+```mermaid
+graph LR
+    subgraph Dev["👨‍💻 Development"]
+        DEV_GIT["Git Repository<br/>FarukhMumtaz/CyberCrime-IS"]
+        DEV_CODE["Code Changes"]
+    end
+
+    subgraph Deploy["☁️ Deployment"]
+        DEPLOY_FRONTEND["Streamlit Cloud<br/>Citizen Portal"]
+        DEPLOY_OFFICER["Streamlit Cloud<br/>Officer Portal"]
+        DEPLOY_BACKEND["Supabase<br/>FastAPI Backend"]
+    end
+
+    subgraph Infra["🌐 Infrastructure"]
+        INFRA_DB["PostgreSQL<br/>Database"]
+        INFRA_STORAGE["Secure Storage<br/>Evidence Files"]
+        INFRA_AI["Groq API<br/>AI Services"]
+    end
+
+    DEV_CODE -->|Push| DEV_GIT
+    DEV_GIT -->|Deploy| DEPLOY_FRONTEND
+    DEV_GIT -->|Deploy| DEPLOY_OFFICER
+    DEV_GIT -->|Deploy| DEPLOY_BACKEND
+    
+    DEPLOY_FRONTEND -->|API Calls| DEPLOY_BACKEND
+    DEPLOY_OFFICER -->|API Calls| DEPLOY_BACKEND
+    DEPLOY_BACKEND -->|Queries| INFRA_DB
+    DEPLOY_BACKEND -->|File Ops| INFRA_STORAGE
+    DEPLOY_BACKEND -->|AI Calls| INFRA_AI
+    
+    style Dev fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Deploy fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style Infra fill:#bbdefb,stroke:#1565c0,stroke-width:2px
 ```
 
 ---
 
-## 📝 Notes
+## 🔄 User Interaction Diagram
 
-- All diagrams represent current system design (May 2026)
-- ASCII diagrams are GitHub-compatible (no external tools needed)
-- All components follow microservices principles
-- Database schema normalized to 3NF
-- Security implemented at every layer
-- Scalable to 1000+ concurrent users
+### Complete System Interactions
+
+```mermaid
+graph TB
+    subgraph Citizens["👤 CITIZENS"]
+        C1["File Complaint"]
+        C2["Upload Evidence"]
+        C3["Track Status"]
+        C4["View Laws"]
+    end
+
+    subgraph System["🎯 CYBER CRIME SYSTEM"]
+        S1["Portal UI"]
+        S2["Backend API"]
+        S3["Database"]
+        S4["AI Engine"]
+    end
+
+    subgraph Officers["👮 OFFICERS"]
+        O1["Login"]
+        O2["Review Cases"]
+        O3["Make Decisions"]
+        O4["View Analytics"]
+    end
+
+    C1 -->|Submit| S1
+    C2 -->|Upload| S1
+    C3 -->|Query| S1
+    C4 -->|Search| S1
+    
+    S1 -->|Process| S2
+    S1 -->|Validate| S4
+    S2 -->|Store| S3
+    S4 -->|Analyze| S3
+    
+    O1 -->|Authenticate| S1
+    O2 -->|Request| S1
+    O3 -->|Submit| S1
+    O4 -->|View| S1
+    
+    S1 -->|Display| Officers
+    S1 -->|Display| Citizens
+    
+    style Citizens fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    style System fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
+    style Officers fill:#fff3e0,stroke:#e65100,stroke-width:2px
+```
 
 ---
 
-## 🔗 Related Documents
+## 📊 Feature & Capability Matrix
 
-- [System Architecture](./architecture/system_architecture.md)
-- [API Documentation](./api/api_documentation.md)
-- [Security Guide](./SECURITY.md)
-- [Deployment Guide](./DEPLOYMENT.md)
-- [User Guide](./guides/user_guide.md)
+### All System Features
+
+```mermaid
+graph TB
+    subgraph Features["✨ SYSTEM FEATURES"]
+        F1["🔐 Authentication & Authorization"]
+        F2["📋 Complaint Management"]
+        F3["📤 Evidence Handling"]
+        F4["📚 Legal Reference System"]
+        F5["🤖 AI Assistance"]
+        F6["📊 Analytics & Statistics"]
+        F7["🔒 Security & Encryption"]
+        F8["📧 Notifications"]
+        F9["⚖️ Decision Workflow"]
+        F10["📱 Mobile Responsive"]
+    end
+
+    subgraph Users["👥 USER ACCESS"]
+        U1["Citizens: F1,F2,F3,F4,F5,F10"]
+        U2["Officers: F1,F2,F3,F4,F6,F9,F10"]
+        U3["Admins: F1,F6,F7,F8"]
+    end
+
+    F1 --> U1
+    F1 --> U2
+    F1 --> U3
+    
+    F2 --> U1
+    F2 --> U2
+    
+    F3 --> U1
+    F3 --> U2
+    
+    F4 --> U1
+    F4 --> U2
+    
+    F5 --> U1
+    
+    F6 --> U2
+    F6 --> U3
+    
+    F9 --> U2
+    
+    F10 --> U1
+    F10 --> U2
+    
+    style Features fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style Users fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+```
 
 ---
 
-**Last Updated**: May 18, 2026  
-**Status**: ✅ Production Ready  
-**Version**: 2.0
+## 📝 Notes & Documentation
+
+- **All Diagrams**: Mermaid syntax (GitHub compatible)
+- **Rendering**: Works on GitHub without external tools
+- **Mobile Friendly**: Responsive and accessible
+- **Professional**: Enterprise-grade visualization
+- **Current**: As of May 18, 2026
+- **Status**: ✅ Production Ready
+
+---
+
+## 🔗 Related Documentation
+
+- [README.md](../README.md) - Project Overview
+- [API Documentation](./api/api_documentation.md) - API Reference
+- [Security Guide](./SECURITY.md) - Security Details
+- [Deployment Guide](./DEPLOYMENT.md) - Deploy Instructions
+- [User Guide](./guides/user_guide.md) - How to Use
+
+---
+
+**Last Updated**: May 18, 2026 | **Version**: 2.0 | **Status**: ✅ Production Ready
